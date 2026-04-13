@@ -1,15 +1,7 @@
-"""Signature patterns for Deadlock offset scanning.
+# signature_patterns.py
 
-COMO ATUALIZAR PATTERNS:
-1. Abra o Deadlock + Cheat Engine
-2. Anexe ao processo deadlock.exe
-3. Encontre o valor desejado (ex: view_matrix)
-4. Faça "Find what writes to this address"
-5. Copie bytes únicos ao redor, use ? para wildcards
-6. Atualize aqui e rode dumper novamente
-"""
+"""Signature patterns for Deadlock offset scanning."""
 
-# Mapping of offset names to (pattern, offset, extra)
 SIGNATURES = {
     "local_player_controller": (
         "48 8B 1D ? ? ? ? 48 8B 6C 24",
@@ -22,7 +14,7 @@ SIGNATURES = {
         7,
     ),
     "entity_list": (
-        "48 8B 0D ?? ?? ?? ?? 48 89 7C 24 ?? 8B FA C1 EB",
+        "48 8B 0D ? ? ? ? 48 89 7C 24 ? 8B FA C1 EB",
         3,
         7,
     ),
