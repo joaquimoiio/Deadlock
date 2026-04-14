@@ -153,43 +153,68 @@ class UniversalTester:
         except:
             return None
     
-    def test_health_offset(self, offset: int = 0x354) -> Dict:
-        """Testa health_offset"""
-        result = {"offset": offset, "valid": False, "value": None, "message": ""}
-
-        if not self.entity_list_offset:
-            result["message"] = "entity_list offset não resolvido"
-            return result
+    def get_local_pawn(self) -> Optional[int]:
+        """Retorna o endereço do pawn do jogador local.
+           Tenta offsets conhecidos primeiro; se falhar, varre o controller."""
+        PAWN_PTR_OFF = 0x490
+        HEALTH_OFF   = 0x2D0
+        heap_lo      = 0x000100000000
+        heap_hi      = 0x7FF000000000
+        lp_off = self.local_player_offset or 0x372F3A0
 
         try:
-            entity_list = self.pm.read_longlong(self.client_base + self.entity_list_offset)
-            
-            for i in range(1, 16):
+            ctrl = self.pm.read_longlong(self.client_base + lp_off)
+            if not ctrl:
+                return None
+
+            # Tenta offsets conhecidos (rápido)
+            for comp_off in [0x5608, 0xF440]:
                 try:
-                    list_entry = self.pm.read_longlong(entity_list + 0x8 * ((i & 0x7FFF) >> 9) + 0x10)
-                    if not list_entry:
-                        continue
-                    
-                    controller = self.pm.read_longlong(list_entry + 120 * (i & 0x1FF))
-                    if not controller:
-                        continue
-                    
-                    pawn_handle = self.pm.read_longlong(controller + 0x874)
-                    pawn_list_entry = self.pm.read_longlong(entity_list + 0x8 * ((pawn_handle & 0x7FFF) >> 9) + 0x10)
-                    pawn = self.pm.read_longlong(pawn_list_entry + 0x78 * (pawn_handle & 0x1FF))
-                    
-                    if pawn:
-                        health = self.read_with_offset(pawn, offset, "int")
-                        if health and 1 <= health <= 1000:
-                            result["valid"] = True
-                            result["value"] = health
-                            result["message"] = f"Vida encontrada: {health}"
-                            return result
+                    inter = self.pm.read_longlong(ctrl + comp_off)
+                    if inter and heap_lo < inter < heap_hi:
+                        pawn = self.pm.read_longlong(inter + PAWN_PTR_OFF)
+                        if pawn and heap_lo < pawn < heap_hi:
+                            hp = self.pm.read_int(pawn + HEALTH_OFF)
+                            if 1 <= hp <= 10000:
+                                return pawn
                 except:
+                    pass
+
+            # Fallback: varre controller procurando a cadeia
+            chunk = self.pm.read_bytes(ctrl, 0x10000)
+            for i in range(0, len(chunk) - 8, 8):
+                ptr = struct.unpack_from("<Q", chunk, i)[0]
+                if not (heap_lo < ptr < heap_hi):
                     continue
+                try:
+                    pawn = self.pm.read_longlong(ptr + PAWN_PTR_OFF)
+                    if pawn and heap_lo < pawn < heap_hi:
+                        hp = self.pm.read_int(pawn + HEALTH_OFF)
+                        if 1 <= hp <= 10000:
+                            return pawn
+                except:
+                    pass
+        except:
+            pass
+        return None
+
+    def test_health_offset(self, offset: int = 0x2D0) -> Dict:
+        """Testa health_offset via cadeia controller->pawn confirmada"""
+        result = {"offset": offset, "valid": False, "value": None, "message": ""}
+        try:
+            pawn = self.get_local_pawn()
+            if not pawn:
+                result["message"] = "Pawn não encontrado"
+                return result
+            health = self.read_with_offset(pawn, offset, "int")
+            if health and 1 <= health <= 10000:
+                result["valid"] = True
+                result["value"] = health
+                result["message"] = f"Vida encontrada: {health}"
+            else:
+                result["message"] = f"Valor fora do range: {health}"
         except Exception as e:
             result["message"] = f"Erro: {e}"
-        
         return result
     
     def test_team_offset(self, offset: int = 0x3F3) -> Dict:
@@ -443,7 +468,7 @@ class UniversalTester:
             "game_scene_node": 0x330,
             "node_position": 0xD0,
             "team_offset": 0x3F3,
-            "health_offset": 0x354,
+            "health_offset": 0x2D0,
             "camera_services": 0xF68,
             "punch_angle": 0x40,
             "bone_array": 0x210,

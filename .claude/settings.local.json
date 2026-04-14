@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python etapa1_diagnostico.py)",
+      "Bash(python -c \"import struct; print\\('Python bits:', struct.calcsize\\('P'\\)*8\\)\")",
+      "Bash(python -c \"import psutil; [print\\(p.pid, p.name\\(\\), p.exe\\(\\)\\) for p in psutil.process_iter\\(['pid','name','exe']\\) if 'deadlock' in p.name\\(\\).lower\\(\\)]\")",
+      "Bash(python etapa3_pattern_scan.py)",
+      "Bash(python etapa4_static_offsets.py)",
+      "Bash(python find840.py)"
+    ]
+  }
+}
