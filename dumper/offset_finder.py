@@ -13,7 +13,10 @@ import logging
 
 import psutil
 
-from signature_patterns import SIGNATURES, STATIC_OFFSETS
+try:
+    from .signature_patterns import SIGNATURES, STATIC_OFFSETS
+except ImportError:
+    from signature_patterns import SIGNATURES, STATIC_OFFSETS
 
 PROCESS_QUERY_INFORMATION = 0x0400
 PROCESS_VM_READ = 0x0010
