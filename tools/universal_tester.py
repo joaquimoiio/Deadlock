@@ -168,7 +168,7 @@ class UniversalTester:
                 return None
 
             # Tenta offsets conhecidos (rápido)
-            for comp_off in [0x5608, 0xF440]:
+            for comp_off in [0x56A8, 0x5608, 0xF440]:
                 try:
                     inter = self.pm.read_longlong(ctrl + comp_off)
                     if inter and heap_lo < inter < heap_hi:
@@ -181,7 +181,8 @@ class UniversalTester:
                     pass
 
             # Fallback: varre controller procurando a cadeia
-            chunk = self.pm.read_bytes(ctrl, 0x10000)
+            # Exige HP > 50 para descartar bots mortos (HP=1) e entidades inativas
+            chunk = self.pm.read_bytes(ctrl, 0x20000)
             for i in range(0, len(chunk) - 8, 8):
                 ptr = struct.unpack_from("<Q", chunk, i)[0]
                 if not (heap_lo < ptr < heap_hi):
@@ -190,7 +191,7 @@ class UniversalTester:
                     pawn = self.pm.read_longlong(ptr + PAWN_PTR_OFF)
                     if pawn and heap_lo < pawn < heap_hi:
                         hp = self.pm.read_int(pawn + HEALTH_OFF)
-                        if 1 <= hp <= 10000:
+                        if 50 < hp <= 10000:
                             return pawn
                 except:
                     pass
@@ -257,7 +258,7 @@ class UniversalTester:
         
         return results
     
-    def test_hero_id_offset(self, offset: int = 0x8D4) -> Dict:
+    def test_hero_id_offset(self, offset: int = 0x90C) -> Dict:
         """Testa hero_id_offset"""
         result = {"offset": offset, "valid": False, "value": None, "message": ""}
 
@@ -266,7 +267,7 @@ class UniversalTester:
             local_controller = self.pm.read_longlong(self.client_base + lp_off)
             if local_controller:
                 hero_id = self.read_with_offset(local_controller, offset, "int")
-                if hero_id and 1 <= hero_id <= 100:
+                if hero_id and 1 <= hero_id <= 200:
                     result["valid"] = True
                     result["value"] = hero_id
                     result["message"] = f"Hero ID: {hero_id}"
@@ -276,48 +277,39 @@ class UniversalTester:
         
         return result
     
-    def test_bone_offsets(self, bone_array_offset: int = 0x210, bone_step: int = 32) -> Dict:
-        """Testa bone_array e bone_step"""
+    def test_bone_offsets(self, bone_array_offset: int = 0x160, bone_step: int = 0x30) -> Dict:
+        """Testa bone_array e bone_step via get_local_pawn()"""
         result = {"bone_array": {"offset": bone_array_offset, "valid": False},
                   "bone_step": {"offset": bone_step, "valid": False}}
-
-        if not self.entity_list_offset:
-            result["bone_array"]["message"] = "entity_list offset não resolvido"
-            return result
-
         try:
-            entity_list = self.pm.read_longlong(self.client_base + self.entity_list_offset)
-            
-            for i in range(1, 5):
-                try:
-                    list_entry = self.pm.read_longlong(entity_list + 0x8 * ((i & 0x7FFF) >> 9) + 0x10)
-                    if not list_entry:
-                        continue
-                    
-                    controller = self.pm.read_longlong(list_entry + 120 * (i & 0x1FF))
-                    if not controller:
-                        continue
-                    
-                    pawn_handle = self.pm.read_longlong(controller + 0x874)
-                    pawn_list_entry = self.pm.read_longlong(entity_list + 0x8 * ((pawn_handle & 0x7FFF) >> 9) + 0x10)
-                    pawn = self.pm.read_longlong(pawn_list_entry + 0x78 * (pawn_handle & 0x1FF))
-                    
-                    if pawn:
-                        game_scene_node = self.read_with_offset(pawn, 0x330, "longlong")
-                        if game_scene_node:
-                            bone_array = self.read_with_offset(game_scene_node, bone_array_offset, "longlong")
-                            if bone_array:
-                                result["bone_array"]["valid"] = True
-                                result["bone_array"]["value"] = hex(bone_array)
-                                
-                                # Testa bone_step lendo um bone
-                                bone_x = self.read_with_offset(bone_array + 7 * bone_step, 0, "float")
-                                if bone_x and -10000 < bone_x < 10000:
-                                    result["bone_step"]["valid"] = True
-                                    result["bone_step"]["value"] = bone_step
-                                    return result
-                except:
-                    continue
+            pawn = self.get_local_pawn()
+            if not pawn:
+                result["bone_array"]["message"] = "pawn não encontrado"
+                return result
+
+            gsn_off = 0x3A8
+            game_scene_node = self.read_with_offset(pawn, gsn_off, "longlong")
+            if not game_scene_node:
+                result["bone_array"]["message"] = f"game_scene_node nulo (pawn+0x{gsn_off:X})"
+                return result
+
+            bone_array = self.read_with_offset(game_scene_node, bone_array_offset, "longlong")
+            if not bone_array:
+                result["bone_array"]["message"] = f"bone_array nulo (gsn+0x{bone_array_offset:X})"
+                return result
+
+            result["bone_array"]["valid"] = True
+            result["bone_array"]["value"] = hex(bone_array)
+
+            # Valida bone_step: bone 6 (cabeça aprox.) deve ter floats razoáveis
+            bone_x = self.read_with_offset(bone_array + 6 * bone_step, 0, "float")
+            bone_y = self.read_with_offset(bone_array + 6 * bone_step, 4, "float")
+            bone_z = self.read_with_offset(bone_array + 6 * bone_step, 8, "float")
+            if (bone_x is not None and bone_y is not None and bone_z is not None
+                    and all(-1e6 < v < 1e6 for v in [bone_x, bone_y, bone_z])):
+                result["bone_step"]["valid"] = True
+                result["bone_step"]["value"] = bone_step
+                result["bone_step"]["message"] = f"bone6=({bone_x:.1f},{bone_y:.1f},{bone_z:.1f})"
         except Exception as e:
             result["error"] = str(e)
         
@@ -464,15 +456,15 @@ class UniversalTester:
             "camera_yaw": 0x48,
             "camera_pitch": 0x44,
             "camera_roll": 0x4C,
-            "hero_id_offset": 0x8D4,
-            "game_scene_node": 0x330,
+            "hero_id_offset": 0x90C,
+            "game_scene_node": 0x3A8,
             "node_position": 0xD0,
             "team_offset": 0x3F3,
             "health_offset": 0x2D0,
             "camera_services": 0xF68,
             "punch_angle": 0x40,
-            "bone_array": 0x210,
-            "bone_step": 32,
+            "bone_array": 0x160,
+            "bone_step": 0x30,
         }
         
         static_results = self.test_static_offsets(static_offsets)
