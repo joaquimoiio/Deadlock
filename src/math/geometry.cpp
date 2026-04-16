@@ -10,7 +10,7 @@ std::pair<float, float> Geometry::CalculateAngles(const Vector3& from, const Vec
     Vector3 delta = to - from;
     
     float yaw = std::atan2(delta.y, delta.x) * 180.0f / 3.14159265358979323846f;
-    float pitch = -std::atan2(delta.z, std::hypot(delta.x, delta.y)) * 180.0f / 3.14159265358979323846f;
+    float pitch = std::atan2(delta.z, std::hypot(delta.x, delta.y)) * 180.0f / 3.14159265358979323846f;
     
     return {yaw, pitch};
 }
@@ -28,8 +28,12 @@ std::pair<float, float> Geometry::SmoothAngles(float currentYaw, float currentPi
     if (diffYaw < -maxChange) diffYaw = -maxChange;
     if (diffPitch > maxChange) diffPitch = maxChange;
     if (diffPitch < -maxChange) diffPitch = -maxChange;
-    
-    return {currentYaw + diffYaw, currentPitch + diffPitch};
+
+    float newPitch = currentPitch + diffPitch;
+    if (newPitch > 89.0f) newPitch = 89.0f;
+    if (newPitch < -89.0f) newPitch = -89.0f;
+
+    return {currentYaw + diffYaw, newPitch};
 }
 
 std::optional<Vector2> Geometry::WorldToScreen(float viewMatrix[4][4], const Vector3& pos, int width, int height) {

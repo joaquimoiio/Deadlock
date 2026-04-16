@@ -50,6 +50,7 @@ private:
     float m_radarRange;
     int m_radarPosition;
     
+    void ApplyStyle();
     void DrawAimbotTab();
     void DrawAntiFlagTab();
     void DrawESPTab();
@@ -89,7 +90,7 @@ public:
     
     // ESP getters
     bool IsESPEnabled() const { return m_espEnabled; }
-    bool GetESPBones() const { return m_espBoxes; }
+    bool GetESPBoxes() const { return m_espBoxes; }
     bool GetESPLines() const { return m_espLines; }
     bool GetESPHealth() const { return m_espHealth; }
     bool GetESPNames() const { return m_espNames; }

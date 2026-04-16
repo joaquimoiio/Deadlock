@@ -90,7 +90,11 @@ bool Overlay::Create(HINSTANCE hInstance, WNDPROC wndProc) {
     SetLayeredWindowAttributes(m_hwnd, RGB(0, 0, 0), 0, LWA_COLORKEY);
     ShowWindow(m_hwnd, SW_SHOW);
     
-    if (!CreateDeviceD3D()) return false;
+    if (!CreateDeviceD3D()) {
+        DestroyWindow(m_hwnd);
+        m_hwnd = nullptr;
+        return false;
+    }
     CreateRenderTarget();
     
     m_initialized = true;
@@ -107,11 +111,7 @@ void Overlay::InitImGui() {
     ImGui_ImplWin32_Init(m_hwnd);
     ImGui_ImplDX11_Init(m_device, m_context);
     
-    ImGui::StyleColorsDark();
-    ImGuiStyle& style = ImGui::GetStyle();
-    style.WindowRounding = 8.0f;
-    style.FrameRounding = 4.0f;
-    style.GrabRounding = 4.0f;
+    ImGui::StyleColorsDark(); // base reset; ImGuiMenu::ApplyStyle() overrides on construction
 }
 
 void Overlay::BeginFrame() {

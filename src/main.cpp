@@ -69,6 +69,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int nCmdShow) {
     g_overlay = new Overlay();
     if (!g_overlay->Create(hInstance, WindowProc)) {
         MessageBox(NULL, L"Failed to create overlay!", L"Error", MB_OK);
+        delete g_overlay;
         return 1;
     }
     
@@ -149,12 +150,13 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int nCmdShow) {
         newConfig.maxHSRatePerMinute = g_menu->GetMaxHSRatePerMinute();
         newConfig.cooldownAfterHighHS = g_menu->GetCooldownAfterHighHS();
         newConfig.burstFireEnabled = g_menu->IsBurstFireEnabled();
+        newConfig.aimKey = g_menu->GetAimKey();
         g_aimbot->SetConfig(newConfig);
         
         // Update ESP config
         ESPConfig espConfig;
         espConfig.enabled = g_menu->IsESPEnabled();
-        espConfig.boxes = g_menu->GetESPBones();
+        espConfig.boxes = g_menu->GetESPBoxes();
         espConfig.lines = g_menu->GetESPLines();
         espConfig.healthBars = g_menu->GetESPHealth();
         espConfig.names = g_menu->GetESPNames();

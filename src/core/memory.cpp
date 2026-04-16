@@ -20,7 +20,7 @@ DWORD Memory::GetProcessId(const std::string& processName) {
         
         if (Process32First(snapshot, &pe)) {
             do {
-                if (strcmp(pe.szExeFile, processName.c_str()) == 0) {
+                if (_stricmp(pe.szExeFile, processName.c_str()) == 0) {
                     pid = pe.th32ProcessID;
                     break;
                 }
@@ -40,8 +40,14 @@ bool Memory::Attach(const std::string& processName) {
     
     m_clientBase = GetModuleBase("client.dll");
     m_engineBase = GetModuleBase("engine2.dll");
-    
-    return m_clientBase != 0;
+
+    if (!m_clientBase) {
+        CloseHandle(m_hProcess);
+        m_hProcess = nullptr;
+        return false;
+    }
+
+    return true;
 }
 
 uintptr_t Memory::GetModuleBase(const std::string& moduleName) {
@@ -54,7 +60,7 @@ uintptr_t Memory::GetModuleBase(const std::string& moduleName) {
     uintptr_t base = 0;
     if (Module32First(snapshot, &me)) {
         do {
-            if (strcmp(me.szModule, moduleName.c_str()) == 0) {
+            if (_stricmp(me.szModule, moduleName.c_str()) == 0) {
                 base = (uintptr_t)me.modBaseAddr;
                 break;
             }
